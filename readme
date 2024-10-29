@@ -1,0 +1,222 @@
+# Employee Data ETL Pipeline Documentation
+
+## Table of Contents
+1. System Overview
+2. Data Generation and Results
+3. Pipeline Architecture and Components
+4. Wrangler Transformations
+5. Pipeline Implementation Details
+6. Monitoring and Operations
+## System Overview
+
+This project implements an end-to-end ETL (Extract, Transform, Load) pipeline for processing employee data using Google Cloud Platform services. The pipeline automatically generates synthetic employee data, processes it through Cloud Data Fusion, and loads it into BigQuery for analysis.
+
+## Data Generation and Results
+
+
+
+
+
+- Detailed employee records in tabular format
+- Department distribution visualization
+- Geographic distribution pie chart
+
+### Generated Data Fields:
+```python
+employee = {
+    "employee_id": "Integer (6 digits)",
+    "first_name": "String",
+    "last_name": "String",
+    "city": "String",
+    "state": "String",
+    "zip_code": "Integer",
+    "email": "String",
+    "phone_number": "String",
+    "department": "String (predefined categories)",
+    "salary": "Integer",
+    "ssn": "String (masked)"
+}
+```
+
+## Pipeline Architecture and Components
+
+
+The pipeline consists of three main components:
+
+1. **GCSFile Source (v0.23.1)**
+   - Input: CSV files from GCS bucket 'bkt-emp1-data'
+   - Configuration:
+     - Format: CSV
+     - Skip Header: Yes
+     - Path: gs://bkt-emp1-data/employee_data.csv
+     - Schema auto-detection enabled
+
+2. **Wrangler (v4.10.1)**
+   - Interactive data preparation tool
+   - Applies transformation directives
+   - Handles data cleaning and formatting
+
+3. **BigQuery (v0.23.1)**
+   - Output: Processed data to BigQuery
+   - Table: etl-data-439322.employee.emp_data
+   - Mode: Append/Override based on configuration
+
+## Wrangler Transformations
+
+### Data Cleaning Directives
+1. **Field Type Conversions**
+   ```
+   set-type employee_id integer
+   set-type zip_code integer
+   set-type salary integer
+   ```
+
+2. **Text Standardization**
+   ```
+   uppercase first_name
+   uppercase last_name
+   clean-email-addresses email
+   ```
+
+3. **Data Validation Rules**
+   - Validate email format
+   - Check phone number patterns
+   - Verify salary ranges
+   - Ensure department matches predefined list
+
+### Data Enrichment Steps
+1. **Department Categorization**
+   - Standardize department names
+   - Map to official department codes
+   - Add department hierarchy information
+
+2. **Location Processing**
+   - Validate state codes
+   - Standardize city names
+   - Add geographic region classifications
+
+3. **Custom Fields Creation**
+   - Generate employee full name
+   - Create email domain categories
+   - Add salary bands
+   - Generate employee type classification
+
+## Pipeline Implementation Details
+
+### Pipeline Execution Logs
+![Pipeline Execution Logs](image3.png)
+
+Key execution metrics:
+- Runtime: 8 mins 14 secs
+- Records Processed: 100
+- Success Rate: 100%
+
+### Data Flow Specifications
+1. **Source Configuration**
+   ```json
+   {
+     "referenceName": "GCSFile",
+     "type": "batchsource",
+     "properties": {
+       "path": "..//path of your bucket",
+       "format": "csv",
+       "skipHeader": "true",
+       "schema": {...}
+     }
+   }
+   ```
+
+2. **Wrangler Configuration**
+   ```json
+   {
+     "field": "body",
+     "filename": "${filename}",
+     "directives": [
+       "parse-as-csv body ,",
+       "drop body",
+       "rename body_1 employee_id",
+       ...
+     ]
+   }
+   ```
+
+3. **BigQuery Sink Configuration**
+   ```json
+   {
+     "name": "BigQuery",
+     "type": "batchsink",
+     "properties": {
+       "project": "etl-data-439322",
+       "dataset": "employee",
+       "table": "emp_data",
+       "operation": "insert",
+       "truncateTable": false
+     }
+   }
+   ```
+
+## Monitoring and Operations
+
+### Real-time Monitoring
+- Pipeline status tracking
+- Performance metrics dashboard
+- Error logging and alerting
+- Data quality checks
+
+### Operational Procedures
+1. **Daily Operations**
+   - Monitor pipeline execution
+   - Validate data completeness
+   - Check transformation logs
+   - Verify BigQuery loads
+
+2. **Error Resolution Process**
+   - Automatic retry mechanism
+   - Error notification system
+   - Manual intervention procedures
+   - Recovery protocols
+
+3. **Performance Optimization**
+   - Resource allocation monitoring
+   - Execution time tracking
+   - Bottleneck identification
+   - Optimization recommendations
+
+### Pipeline Control Flow
+```python
+# Airflow DAG implementation
+with dag:
+    run_script_task = BashOperator(
+        task_id='extract_data',
+        bash_command='python /home/airflow/gcs/dags/scripts/generate_employees.py',
+    )
+    
+    start_pipeline = CloudDataFusionStartPipelineOperator(
+        location="us-central1",
+        pipeline_name="etl-pipeline",
+        instance_name="datafusion-dev",
+        task_id="start_datafusion_pipeline",
+    )
+    
+    run_script_task >> start_pipeline
+```
+
+### Key Monitoring Metrics
+1. **Performance Metrics**
+   - Pipeline execution time: 8 minutes 14 seconds
+   - Processing rate: ~12 records/minute
+   - Resource utilization: Autoscaling enabled
+
+2. **Data Quality Metrics**
+   - Records processed: 100
+   - Transformation success rate: 100%
+   - Error rate: 0%
+   - Data completeness: 100%
+
+3. **System Health Indicators**
+   - CPU utilization
+   - Memory usage
+   - Network throughput
+   - Storage metrics
+
+
